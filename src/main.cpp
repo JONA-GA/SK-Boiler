@@ -8,14 +8,25 @@
 // Remove the parts that are not relevant to you, and add your own code
 // for external hardware libraries.
 
-#include "sensesp/sensors/analog_input.h"
-#include "sensesp/sensors/digital_input.h"
-#include "sensesp/sensors/sensor.h"
-#include "sensesp/signalk/signalk_output.h"
-#include "sensesp/system/lambda_consumer.h"
+
+
+
+#include <string>
+
+
 #include "sensesp_app_builder.h"
+#include "sensesp/signalk/signalk_listener.h"
+#include "sensesp/signalk/signalk_value_listener.h"
+#include "sensesp/signalk/signalk_output.h"
+#include "sensesp/signalk/signalk_put_request_listener.h"
+//#include "sensesp/transforms/threshold.h"
+#include "sensesp/transforms/repeat_report.h"
 
 using namespace sensesp;
+
+#include "Triac_controller.h"
+#include "DEV_Config.h"
+#include "SCR_Drive.h"
 
 reactesp::ReactESP app;
 
@@ -29,95 +40,77 @@ void setup() {
   SensESPAppBuilder builder;
   sensesp_app = (&builder)
                     // Set a custom hostname for the app.
-                    ->set_hostname("my-sensesp-project")
+                    ->set_hostname("sk-boiler.local")
                     // Optionally, hard-code the WiFi and Signal K server
                     // settings. This is normally not needed.
-                    //->set_wifi("My WiFi SSID", "my_wifi_password")
+                    ->set_wifi("Cerise", "auberge du cheval blanc")
                     //->set_sk_server("192.168.10.3", 80)
+                    //->set_standard_sensors(StandardSensors::NONE)
                     ->get_app();
 
-  // GPIO number to use for the analog input
-  const uint8_t kAnalogInputPin = 36;
-  // Define how often (in milliseconds) new samples are acquired
-  const unsigned int kAnalogInputReadInterval = 500;
-  // Define the produced value at the maximum input voltage (3.3V).
-  // A value of 3.3 gives output equal to the input voltage.
-  const float kAnalogInputScale = 3.3;
+  
+// Define the SK Path that represents the load this device controls.
+  // This device will report its status on this path, as well as
+  // respond to PUT requests to change its status.
+  // To find valid Signal K Paths that fits your need you look at this link:
+  // https://signalk.org/specification/1.4.0/doc/vesselsBranch.html  
+  const char* sk_path = "electrical.boiler.state";
 
-  // Create a new Analog Input Sensor that reads an analog input pin
-  // periodically.
-  auto* analog_input = new AnalogInput(
-      kAnalogInputPin, kAnalogInputReadInterval, "", kAnalogInputScale);
 
-  // Add an observer that prints out the current value of the analog input
-  // every time it changes.
-  analog_input->attach([analog_input]() {
-    debugD("Analog input value: %f", analog_input->get());
-  });
+  // "Configuration paths" are combined with "/config" to formulate a URL
+  // used by the RESTful API for retrieving or setting configuration data.
+  // It is ALSO used to specify a path to the SPIFFS file system
+  // where configuration data is saved on the MCU board.  It should
+  // ALWAYS start with a forward slash if specified.  If left blank,
+  // that indicates a sensor or transform does not have any
+  // configuration to save.
+  //const char* config_path_button_c = "/button/clicktime";
+  //const char* config_path_status_light = "/button/statusLight";
+  //const char* config_path = "/threshold/lights";
+  const char* config_path_sk_sync_t = "/Triac/sync";
+  const char* config_path_sk_output = "/signalk/path";
+  const char* config_path_repeat = "/signalk/repeat";
 
-  // Set GPIO pin 15 to output and toggle it every 650 ms
 
-  const uint8_t kDigitalOutputPin = 15;
-  const unsigned int kDigitalOutputInterval = 650;
-  pinMode(kDigitalOutputPin, OUTPUT);
-  app.onRepeat(kDigitalOutputInterval, [kDigitalOutputPin]() {
-    digitalWrite(kDigitalOutputPin, !digitalRead(kDigitalOutputPin));
-  });
 
-  // Read GPIO 14 every time it changes
+  // Create a digital output that is assumed to be connected to the
+  // control channel of a relay or a MOSFET that will control the
+  // electric light.  Also connect this pin's state to an LED to get
+  // a visual indicator of load's state. 
+  auto* triac_switch = new ScrDrive();
+  
 
-  const uint8_t kDigitalInput1Pin = 14;
-  auto* digital_input1 =
-      new DigitalInputChange(kDigitalInput1Pin, INPUT_PULLUP, CHANGE);
+const char* sk_sync_paths[] = { sk_path ,  "" };
+const bool auto_init_controller = true;
+  // Create a switch controller to handle the user press logic and 
+  // connect it to the load switch...
+  TriacController* controller = new TriacController(auto_init_controller,config_path_sk_sync_t, sk_sync_paths);
+  controller->connect_to(triac_switch);
+  
 
-  // Connect the digital input to a lambda consumer that prints out the
-  // value every time it changes.
+  // TriacController accepts explicit state settings via 
+  // any int producer .
+  // Here, we set up a SignalK PUT request listener to handle
+  // requests made to the Signal K server to set the switch state.
+  // This allows any device on the SignalK network that can make
+  // such a request to also control the state of our switch.
+  auto* sk_listener = new IntSKPutRequestListener(sk_path);
+  sk_listener->connect_to(controller);
 
-  // Test this yourself by connecting pin 15 to pin 14 with a jumper wire and
-  // see if the value changes!
 
-  digital_input1->connect_to(new LambdaConsumer<bool>(
-      [](bool input) { debugD("Digital input value changed: %d", input); }));
+  // Finally, connect the load switch to an SKOutput so it reports its state 
+  // to the Signal K server.  Since the load switch only reports its state 
+  // whenever it changes (and switches like light switches change infrequently), 
+  // send it through a `RepeatReport` transform, which will cause the state 
+  // to be reported to the server every 10 seconds, regardless of whether 
+  // or not it has changed.  That keeps the value on the server fresh and 
+  // lets the server know the switch is still alive.
+  triac_switch->connect_to(new RepeatReport<int>(10000, config_path_repeat))
+             ->connect_to(new SKOutputInt(sk_path, config_path_sk_output,"%"));
 
-  // Create another digital input, this time with RepeatSensor. This approach
-  // can be used to connect external sensor library to SensESP!
 
-  const uint8_t kDigitalInput2Pin = 13;
-  const unsigned int kDigitalInput2Interval = 1000;
 
-  // Configure the pin. Replace this with your custom library initialization
-  // code!
-  pinMode(kDigitalInput2Pin, INPUT_PULLUP);
 
-  // Define a new RepeatSensor that reads the pin every 100 ms.
-  // Replace the lambda function internals with the input routine of your custom
-  // library.
-
-  // Again, test this yourself by connecting pin 15 to pin 13 with a jumper
-  // wire and see if the value changes!
-
-  auto* digital_input2 = new RepeatSensor<bool>(
-      kDigitalInput2Interval,
-      [kDigitalInput2Pin]() { return digitalRead(kDigitalInput2Pin); });
-
-  // Connect the analog input to Signal K output. This will publish the
-  // analog input value to the Signal K server every time it changes.
-  analog_input->connect_to(new SKOutputFloat(
-      "sensors.analog_input.voltage",         // Signal K path
-      "/sensors/analog_input/voltage",        // configuration path, used in the
-                                              // web UI and for storing the
-                                              // configuration
-      new SKMetadata("V",                     // Define output units
-                     "Analog input voltage")  // Value description
-      ));
-
-  // Connect digital input 2 to Signal K output.
-  digital_input2->connect_to(new SKOutputBool(
-      "sensors.digital_input2.value",          // Signal K path
-      "/sensors/digital_input2/value",         // configuration path
-      new SKMetadata("",                       // No units for boolean values
-                     "Digital input 2 value")  // Value description
-      ));
 
   // Start networking, SK server connections and other SensESP internals
   sensesp_app->start();
