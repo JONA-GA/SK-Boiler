@@ -1,25 +1,28 @@
 #include "SCR_Drive.h"
-
-
-ScrDrive::ScrDrive(){
+#include "DEV_Config.h"
+namespace sensesp {
+ScrDrive::ScrDrive(int canal){
 
 Config_Init();
 SCR_Reset(30);
 SCR_GridFrequency (50);
-SCR_SetMode(1);
-SCR_ChannelEnable(1);
+SCR_SetMode(canal);
+SCR_ChannelEnable(canal);
 debugD("skboiler-scrdrive init: ");
 
 }
-void ScrDrive::set_input(uint8_t new_value, uint8_t input_channel){
+void ScrDrive::set_input(int new_value, uint8_t input_channel){
 
 
 SCR_VoltageRegulation (1, new_value);
 this->emit(new_value);
-debugD("skboiler-scrdrive : %d", new_value);
+debugD("skboiler-scrdrive new value: %d", new_value);
 
 
 }
+
+
+
 /******************************************************************************
 function:   send command
 parameter:  Data: Data buffer
@@ -191,3 +194,4 @@ void ScrDrive::SCR_SetBaudrate(UDOUBLE Baudrate)
     }
     
 }
+} //end namespace

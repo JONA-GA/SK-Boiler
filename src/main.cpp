@@ -12,23 +12,28 @@
 
 
 #include <string>
-
-
-#include "sensesp_app_builder.h"
+#include "DEV_Config.h"
+#include "Triac_controller.h"
+#include "SCR_Drive.h"
 #include "sensesp/signalk/signalk_listener.h"
 #include "sensesp/signalk/signalk_value_listener.h"
 #include "sensesp/signalk/signalk_output.h"
 #include "sensesp/signalk/signalk_put_request_listener.h"
-//#include "sensesp/transforms/threshold.h"
 #include "sensesp/transforms/repeat_report.h"
+#include "sensesp_app.h"
+#include "sensesp_app_builder.h"
+
+
+
+
+
+
 
 using namespace sensesp;
 
-#include "Triac_controller.h"
-#include "DEV_Config.h"
-#include "SCR_Drive.h"
 
-reactesp::ReactESP app;
+
+ReactESP app;
 
 // The setup function performs one-time application initialization.
 void setup() {
@@ -77,14 +82,14 @@ void setup() {
   // control channel of a relay or a MOSFET that will control the
   // electric light.  Also connect this pin's state to an LED to get
   // a visual indicator of load's state. 
-  auto* triac_switch = new ScrDrive();
+  auto* triac_switch = new ScrDrive(1);
   
 
 const char* sk_sync_paths[] = { sk_path ,  "" };
 const bool auto_init_controller = true;
   // Create a switch controller to handle the user press logic and 
   // connect it to the load switch...
-  TriacController* controller = new TriacController(auto_init_controller,config_path_sk_sync_t, sk_sync_paths);
+  TriacController* controller = new TriacController();
   controller->connect_to(triac_switch);
   
 
@@ -105,7 +110,7 @@ const bool auto_init_controller = true;
   // to be reported to the server every 10 seconds, regardless of whether 
   // or not it has changed.  That keeps the value on the server fresh and 
   // lets the server know the switch is still alive.
-  triac_switch->connect_to(new RepeatReport<int>(10000, config_path_repeat))
+  triac_switch ->connect_to(new RepeatReport<int>(60000, config_path_repeat))
              ->connect_to(new SKOutputInt(sk_path, config_path_sk_output,"%"));
 
 
