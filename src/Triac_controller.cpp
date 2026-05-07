@@ -16,7 +16,7 @@ TriacController::TriacController(bool auto_initialize, String config_path, const
       } // while
   }
 
-  load_configuration();
+ //load_configuration();
 }
 
 
@@ -39,7 +39,7 @@ void TriacController::set_input(int new_value, uint8_t input_channel) {
 }
 
 void TriacController::get_configuration(JsonObject& root) {
-  JsonArray jPaths = root.createNestedArray("sync_paths");
+  JsonArray jPaths = root["sync_paths"].to<JsonArray>();
   for (auto& path : sync_paths) {
     jPaths.add(path.sk_sync_path);
   }

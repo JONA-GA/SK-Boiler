@@ -9,7 +9,8 @@
 // for external hardware libraries.
 
 
-
+#include <memory>
+#include "sensesp.h"
 
 #include <string>
 #include "DEV_Config.h"
@@ -19,7 +20,7 @@
 #include "sensesp/signalk/signalk_value_listener.h"
 #include "sensesp/signalk/signalk_output.h"
 #include "sensesp/signalk/signalk_put_request_listener.h"
-#include "sensesp/transforms/repeat_report.h"
+#include "sensesp/transforms/repeat.h"
 #include "sensesp_app.h"
 #include "sensesp_app_builder.h"
 
@@ -33,26 +34,22 @@ using namespace sensesp;
 
 
 
-ReactESP app;
+
 
 // The setup function performs one-time application initialization.
+
 void setup() {
-#ifndef SERIAL_DEBUG_DISABLED
-  SetupSerialDebug(115200);
-#endif
+  SetupLogging(ESP_LOG_DEBUG);
 
   // Construct the global SensESPApp() object
   SensESPAppBuilder builder;
-  sensesp_app = (&builder)
-                    // Set a custom hostname for the app.
-                    ->set_hostname("sk-boiler.local")
+  sensesp_app = builder.set_hostname("SK Boiler Controller")
                     // Optionally, hard-code the WiFi and Signal K server
                     // settings. This is normally not needed.
-                    ->set_wifi("Cerise", "auberge du cheval blanc")
+                    ->set_wifi_client("Blunova1", "Rollotommasi12062022")
+                    //->set_wifi_access_point("My AP SSID", "my_ap_password")
                     //->set_sk_server("192.168.10.3", 80)
-                    //->set_standard_sensors(StandardSensors::NONE)
                     ->get_app();
-
   
 // Define the SK Path that represents the load this device controls.
   // This device will report its status on this path, as well as
@@ -74,7 +71,7 @@ void setup() {
   //const char* config_path = "/threshold/lights";
   const char* config_path_sk_sync_t = "/Triac/sync";
   const char* config_path_sk_output = "/signalk/path";
-  const char* config_path_repeat = "/signalk/repeat";
+  //const char* config_path_repeat = "/signalk/repeat";
 
 
 
@@ -110,7 +107,7 @@ const bool auto_init_controller = true;
   // to be reported to the server every 10 seconds, regardless of whether 
   // or not it has changed.  That keeps the value on the server fresh and 
   // lets the server know the switch is still alive.
-  triac_switch ->connect_to(new RepeatReport<int>(60000, config_path_repeat))
+  triac_switch ->connect_to(new Repeat<int16_t,int16_t>(60000))
              ->connect_to(new SKOutputInt(sk_path, config_path_sk_output,"%"));
 
 
@@ -118,7 +115,13 @@ const bool auto_init_controller = true;
 
 
   // Start networking, SK server connections and other SensESP internals
-  sensesp_app->start();
+  //sensesp_app->start();
+
+   // To avoid garbage collecting all shared pointers created in setup(),
+  // loop from here.
+  while (true) {
+    loop();
+  }
 }
 
-void loop() { app.tick(); }
+void loop() { event_loop()->tick(); }

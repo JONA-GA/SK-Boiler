@@ -43,16 +43,16 @@ class TriacController : public IntegerTransform {
         *   This list, if specified, should have a zero length string as its last entry.
         */
        TriacController(bool auto_initialize = true, String config_path = "", const char* sk_sync_paths[] = NULL);
-       void start() override;
-       void set_input(int new_value, uint8_t input_channel = 0) override;
+       void start() ;
+       void set_input(int new_value, uint8_t input_channel = 0) ;
        //void set_input(String new_value, uint8_t input_channel = 0) override;
        //void set_input(ClickTypes new_value, uint8_t input_channel = 0) override;
 
 
        // For reading and writing the configuration of this transformation
-       virtual void get_configuration(JsonObject& doc) override;
-       virtual bool set_configuration(const JsonObject& config) override;
-       virtual String get_config_schema() override;
+       virtual void get_configuration(JsonObject& doc);
+       virtual bool set_configuration(const JsonObject& config) ;
+       virtual String get_config_schema() ;
 
      public:
        /// Used to store configuration internally.

@@ -23,7 +23,7 @@ class ScrDrive : public IntegerTransform {
  public:
     ScrDrive(int canal);
     
-    void set_input(int new_value, uint8_t input_channel = 1) override ;
+    void set_input(int new_value, uint8_t input_channel = 1)  ;
 
     void SCR_SetMode(uint8_t Mode);
     void SCR_ChannelEnable(uint8_t Channel);
