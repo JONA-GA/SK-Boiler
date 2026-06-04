@@ -9,7 +9,6 @@
 // for external hardware libraries.
 
 
-#include <memory>
 #include "sensesp.h"
 
 #include <string>
@@ -36,19 +35,19 @@ using namespace sensesp;
 
 
 
-// The setup function performs one-time application initialization.
+// The setup function performs one-time application initialization. 
 
 void setup() {
   SetupLogging(ESP_LOG_DEBUG);
 
   // Construct the global SensESPApp() object
   SensESPAppBuilder builder;
-  sensesp_app = builder.set_hostname("SK Boiler Controller")
+  sensesp_app = builder.set_hostname("SK-Boiler-Controller")
                     // Optionally, hard-code the WiFi and Signal K server
                     // settings. This is normally not needed.
                     ->set_wifi_client("Blunova1", "Rollotommasi12062022")
                     //->set_wifi_access_point("My AP SSID", "my_ap_password")
-                    //->set_sk_server("192.168.10.3", 80)
+                    //->set_sk_server("192.168.0.108", 3010)
                     ->get_app();
   
 // Define the SK Path that represents the load this device controls.
@@ -107,8 +106,14 @@ const bool auto_init_controller = true;
   // to be reported to the server every 10 seconds, regardless of whether 
   // or not it has changed.  That keeps the value on the server fresh and 
   // lets the server know the switch is still alive.
-  triac_switch ->connect_to(new Repeat<int16_t,int16_t>(60000))
-             ->connect_to(new SKOutputInt(sk_path, config_path_sk_output,"%"));
+  auto* skMetadata = new SKMetadata("%", 
+                                "Boiler control", 
+                                "Boiler Power Control", 
+                                "Boiler", 
+                                -1.0f,
+                                true);
+  triac_switch ->connect_to(new Repeat<int16_t,int16_t>(10000))
+             ->connect_to(new SKOutputInt(sk_path, config_path_sk_output,skMetadata));
 
 
 
@@ -119,9 +124,9 @@ const bool auto_init_controller = true;
 
    // To avoid garbage collecting all shared pointers created in setup(),
   // loop from here.
-  while (true) {
-    loop();
-  }
+  //while (true) {
+  //  loop();
+  //}
 }
 
 void loop() { event_loop()->tick(); }

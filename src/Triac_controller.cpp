@@ -24,18 +24,20 @@ void TriacController::start() {
     if (auto_initialize_) {
        this->emit(is_on);
     }
-    debugD("****** Triac Control  start : %d", is_on);
+    ESP_LOGI(__FILENAME__,"****** Triac Control  start : %d", is_on);
+    
 }
 
 void TriacController::set_input(int new_value, uint8_t input_channel) {
    is_on = new_value;
    this->emit(is_on);
-   debugD("****** Triac Control  set : %d", new_value);
+   ESP_LOGI(__FILENAME__,"****** Triac Control  set: %d", new_value);
    // Sync any specified sync paths...
-   // for (auto& path : sync_paths) {
+    for (auto& path : sync_paths) {
    //   debugD("Sync status to %s", path.sk_sync_path.c_str());
-   //   path.put_request->set_input(is_on);
-   // }
+   ESP_LOGI(__FILENAME__,"Sync status to %s", path.sk_sync_path.c_str());
+     path.put_request->set(is_on);
+   }
 }
 
 void TriacController::get_configuration(JsonObject& root) {
@@ -73,6 +75,6 @@ bool TriacController::set_configuration(const JsonObject& config) {
 
 TriacController::SyncPath::SyncPath(String sk_sync_path)
     : sk_sync_path{sk_sync_path} {
-   debugD("Triac controller will also sync %s", sk_sync_path.c_str());
+   ESP_LOGI(__FILENAME__,"Triac controller will also sync %s", sk_sync_path.c_str());
    this->put_request = new IntSKPutRequest(sk_sync_path );
 }

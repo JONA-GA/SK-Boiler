@@ -8,7 +8,7 @@ SCR_Reset(30);
 SCR_GridFrequency (50);
 SCR_SetMode(canal);
 SCR_ChannelEnable(canal);
-debugD("skboiler-scrdrive init: ");
+ESP_LOGI(__FILENAME__,"****** scr config done");
 
 }
 void ScrDrive::set_input(int new_value, uint8_t input_channel){
@@ -16,7 +16,8 @@ void ScrDrive::set_input(int new_value, uint8_t input_channel){
 
 SCR_VoltageRegulation (1, new_value);
 this->emit(new_value);
-debugD("skboiler-scrdrive new value: %d", new_value);
+ESP_LOGI(__FILENAME__,"skboiler-scrdrive new value: %d", new_value);
+
 
 
 }
