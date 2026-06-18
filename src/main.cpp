@@ -42,7 +42,7 @@ void setup() {
 
   // Construct the global SensESPApp() object
   SensESPAppBuilder builder;
-  sensesp_app = builder.set_hostname("SK-Boiler-Controller")
+  sensesp_app = builder.set_hostname("SK_Boiler_Controller")
                     // Optionally, hard-code the WiFi and Signal K server
                     // settings. This is normally not needed.
                     ->set_wifi_client("Blunova1", "Rollotommasi12062022")
@@ -96,7 +96,7 @@ const bool auto_init_controller = true;
   // This allows any device on the SignalK network that can make
   // such a request to also control the state of our switch.
   auto* sk_listener = new IntSKPutRequestListener(sk_path);
-  sk_listener->connect_to(controller);
+  sk_listener->connect_to(controller->Triac_consumer_);
 
 
   // Finally, connect the load switch to an SKOutput so it reports its state 
@@ -112,21 +112,9 @@ const bool auto_init_controller = true;
                                 "Boiler", 
                                 -1.0f,
                                 true);
-  triac_switch ->connect_to(new Repeat<int16_t,int16_t>(10000))
+  triac_switch ->connect_to(new Repeat<int,int>(10000))
              ->connect_to(new SKOutputInt(sk_path, config_path_sk_output,skMetadata));
 
-
-
-
-
-  // Start networking, SK server connections and other SensESP internals
-  //sensesp_app->start();
-
-   // To avoid garbage collecting all shared pointers created in setup(),
-  // loop from here.
-  //while (true) {
-  //  loop();
-  //}
 }
 
 void loop() { event_loop()->tick(); }

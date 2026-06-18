@@ -5,7 +5,7 @@
 
 #include "sensesp/system/observable.h"
 #include "sensesp/transforms/transform.h"
-
+#include "sensesp/system/lambda_consumer.h"
 
 #define UART_Interfac 1
 #define I2C_Interfac 0
@@ -33,7 +33,7 @@ class ScrDrive : public IntegerTransform {
     void SCR_Reset(uint8_t Delay);
     void SCR_SetBaudrate(uint32_t Baudrate);
 
- private:
+ 
   
 };
 }  // end namespace

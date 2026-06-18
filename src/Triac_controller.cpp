@@ -3,78 +3,53 @@
 
 
 
-TriacController::TriacController(bool auto_initialize, String config_path, const char* sk_sync_paths[]) :
-   IntegerTransform(config_path), auto_initialize_{auto_initialize} {
+TriacController::TriacController(bool auto_initialize, String config_path, const char* sk_sync_paths[]) 
+   : FileSystemSaveable(config_path), auto_initialize_{auto_initialize} {
 
   if (sk_sync_paths != NULL) {
-      sync_paths.clear();
+      sync_paths_.clear();
       int i = 0;
       while (strlen(sk_sync_paths[i]) > 0) {
           SyncPath path(sk_sync_paths[i]);
-          sync_paths.insert(path);
+          sync_paths_.insert(path);
           i++;
       } // while
   }
 
- //load_configuration();
-}
-
-
-void TriacController::start() {
-    if (auto_initialize_) {
-       this->emit(is_on);
-    }
-    ESP_LOGI(__FILENAME__,"****** Triac Control  start : %d", is_on);
-    
-}
-
-void TriacController::set_input(int new_value, uint8_t input_channel) {
-   is_on = new_value;
-   this->emit(is_on);
-   ESP_LOGI(__FILENAME__,"****** Triac Control  set: %d", new_value);
-   // Sync any specified sync paths...
-    for (auto& path : sync_paths) {
-   //   debugD("Sync status to %s", path.sk_sync_path.c_str());
-   ESP_LOGI(__FILENAME__,"Sync status to %s", path.sk_sync_path.c_str());
-     path.put_request->set(is_on);
-   }
-}
-
-void TriacController::get_configuration(JsonObject& root) {
-  JsonArray jPaths = root["sync_paths"].to<JsonArray>();
-  for (auto& path : sync_paths) {
-    jPaths.add(path.sk_sync_path);
+ load();
+ // Emit the initial state once the event loop starts
+  if (auto_initialize_) {
+    event_loop()->onDelay(10000, [this]() { this->emit(is_on_); });
+    ESP_LOGI(__FILENAME__,"skboiler-Triac controller new value: %d", is_on_);
   }
 }
 
-static const char SCHEMA[] PROGMEM = R"({
-    "type": "object",
-    "properties": {
-        "sync_paths": { "title": "Boiler Control ",
-                        "type": "array",
-                        "items": { "type": "string"}
-        }
-    }
-  })";
 
-String TriacController::get_config_schema() { return FPSTR(SCHEMA); }
+bool TriacController::to_json(JsonObject& root) {
+  JsonArray jPaths = root["sync_paths"].to<JsonArray>();
+  for (auto& path : sync_paths_) {
+    jPaths.add(path.sk_sync_path_);
+  }
+  return true;
+}
 
-bool TriacController::set_configuration(const JsonObject& config) {
-
+bool TriacController::from_json(const JsonObject& config) {
   JsonArray arr = config["sync_paths"];
   if (arr.size() > 0) {
-    sync_paths.clear();
+    sync_paths_.clear();
     for (String sk_path : arr) {
       SyncPath path(sk_path);
-      sync_paths.insert(path);
+      sync_paths_.insert(path);
     }
   }
 
   return true;
 }
 
+TriacController::SyncPath::SyncPath() {}
+
 TriacController::SyncPath::SyncPath(String sk_sync_path)
-    : sk_sync_path{sk_sync_path} {
-   ESP_LOGI(__FILENAME__,"Triac controller will also sync %s", sk_sync_path.c_str());
-   this->put_request = new IntSKPutRequest(sk_sync_path );
+    : sk_sync_path_{sk_sync_path} {
+  ESP_LOGD(__FILENAME__, "DoubleClick will also sync %s", sk_sync_path.c_str());
+  this->put_request_ = std::make_shared<IntSKPutRequest>(sk_sync_path, "", false);
 }

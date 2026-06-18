@@ -5,6 +5,7 @@
 
 #include "sensesp/signalk/signalk_put_request.h"
 #include "sensesp/system/valueconsumer.h"
+#include "sensesp/system/lambda_consumer.h"
 #include "sensesp/transforms/transform.h"
 
 using namespace sensesp;
@@ -25,7 +26,7 @@ using namespace sensesp;
  *
  * 
  */
-class TriacController : public IntegerTransform {
+class TriacController : public ValueProducer<int>, FileSystemSaveable {
 
      public:
        /**
@@ -43,34 +44,36 @@ class TriacController : public IntegerTransform {
         *   This list, if specified, should have a zero length string as its last entry.
         */
        TriacController(bool auto_initialize = true, String config_path = "", const char* sk_sync_paths[] = NULL);
-       void start() ;
-       void set_input(int new_value, uint8_t input_channel = 0) ;
-       //void set_input(String new_value, uint8_t input_channel = 0) override;
-       //void set_input(ClickTypes new_value, uint8_t input_channel = 0) override;
+       
+        // For reading and writing the configuration of this transformation
+  virtual bool to_json(JsonObject& doc) override;
+  virtual bool from_json(const JsonObject& config) override;
 
-
-       // For reading and writing the configuration of this transformation
-       virtual void get_configuration(JsonObject& doc);
-       virtual bool set_configuration(const JsonObject& config) ;
-       virtual String get_config_schema() ;
-
-     public:
+LambdaConsumer<int> Triac_consumer_{[this](int value) {
+    this->is_on_ = value;
+    this->emit(is_on_);
+  }};
+     
        /// Used to store configuration internally.
-       class SyncPath {
-          public:
-            String sk_sync_path;
-            IntSKPutRequest* put_request;
+  class SyncPath {
+   public:
+    String sk_sync_path_;
+    std::shared_ptr<IntSKPutRequest> put_request_;
 
-            SyncPath(String sk_sync_path);
+    SyncPath();
+    SyncPath(String sk_sync_path);
 
-            friend bool operator<(const SyncPath& lhs, const SyncPath& rhs) {
-             return lhs.sk_sync_path < rhs.sk_sync_path;
-           }
-       };
-
+    friend bool operator<(const SyncPath& lhs, const SyncPath& rhs) {
+      return lhs.sk_sync_path_ < rhs.sk_sync_path_;
+    }
+ };
      protected:
-       int is_on = 0;
-       bool auto_initialize_;
-       std::set<SyncPath> sync_paths;
+  bool is_on_ = false;
+  bool auto_initialize_;
+  std::set<SyncPath> sync_paths_;
 };
+inline const String ConfigSchema(const TriacController& obj) {
+  return R"({"type":"object","properties":{"sync_paths":{"title":"Sync on double click","type":"array","items":{"type":"string"}}}  })";
+}
+       
 #endif
